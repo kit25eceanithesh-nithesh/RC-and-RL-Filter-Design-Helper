@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RC and RL Filter Design Helper</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f0f4f8;
+    color: #1e293b;
+}
+
+header {
+    background: #123b69;
+    color: white;
+    text-align: center;
+    padding: 25px 15px;
+}
+
+header h1 {
+    margin: 0 0 10px;
+}
+
+header p {
+    margin: 0;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 25px auto;
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    padding: 22px;
+    margin-bottom: 20px;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px #00000010;
+}
+
+h2 {
+    color: #123b69;
+    margin-top: 0;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 7px;
+}
+
+select, input {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 15px;
+}
+
+button {
+    background: #1769aa;
+    color: white;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 18px;
+}
+
+button:hover {
+    background: #0d4779;
+}
+
+.results {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.result-box {
+    background: #eaf3ff;
+    padding: 18px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.result-box p {
+    margin: 5px 0;
+    color: #475569;
+}
+
+.result-box strong {
+    display: block;
+    font-size: 22px;
+    color: #123b69;
+    overflow-wrap: anywhere;
+}
+
+#diagram {
+    background: #f8fafc;
+    border: 1px solid #dbe3ed;
+    border-radius: 8px;
+    padding: 15px;
+    overflow-x: auto;
+    text-align: center;
+}
+
+#diagram svg {
+    width: 100%;
+    max-width: 650px;
+    height: auto;
+}
+
+canvas {
+    width: 100%;
+    height: 300px;
+    display: block;
+}
+
+.note {
+    color: #475569;
+    line-height: 1.7;
+}
+
+footer {
+    text-align: center;
+    background: #123b69;
+    color: white;
+    padding: 16px;
+}
+
+@media (max-width: 500px) {
+    .container {
+        padding: 12px;
+    }
+
+    .card {
+        padding: 15px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>RC and RL Filter Design Helper</h1>
+    <p>Design, calculate and explore electronic filters</p>
+</header>
+
+<main class="container">
+
+<section class="card">
+    <h2>1. Filter Design</h2>
+
+    <div class="form-grid">
+        <div>
+            <label for="type">Filter Type</label>
+            <select id="type">
+                <option value="rc-low">RC Low-Pass</option>
+                <option value="rc-high">RC High-Pass</option>
+                <option value="rl-low">RL Low-Pass</option>
+                <option value="rl-high">RL High-Pass</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="resistance">Resistance (Ω)</label>
+            <input type="number" id="resistance"
+                   value="1000" min="0.000001" step="any">
+        </div>
+
+        <div id="capGroup">
+            <label for="capacitance">Capacitance (µF)</label>
+            <input type="number" id="capacitance"
+                   value="0.1" min="0.000001" step="any">
+        </div>
+
+        <div id="indGroup" style="display:none">
+            <label for="inductance">Inductance (mH)</label>
+            <input type="number" id="inductance"
+                   value="10" min="0.000001" step="any">
+        </div>
+    </div>
+
+    <button onclick="calculateFilter()">Calculate Filter</button>
+    <p class="note" id="message">
+        Enter component values and calculate the filter response.
+    </p>
+</section>
+
+<section class="card">
+    <h2>2. Calculation Results</h2>
+
+    <div class="results">
+        <div class="result-box">
+            <p>Cutoff Frequency</p>
+            <strong id="fc">1591.55 Hz</strong>
+        </div>
+
+        <div class="result-box">
+            <p>Time Constant / L-R Ratio</p>
+            <strong id="constant">0.10 ms</strong>
+        </div>
+
+        <div class="result-box">
+            <p>Gain at Cutoff</p>
+            <strong id="gain">-3.01 dB</strong>
+        </div>
+    </div>
+
+    <p class="note" id="formula"></p>
+</section>
+
+<section class="card">
+    <h2>3. Circuit Diagram</h2>
+    <div id="diagram"></div>
+    <p class="note" id="outputDescription"></p>
+</section>
+
+<section class="card">
+    <h2>4. Frequency Response</h2>
+    <p class="note">
+        The graph shows how the filter gain changes with frequency.
+        The horizontal axis is logarithmic. The dashed line marks
+        the cutoff frequency.
+    </p>
+    <canvas id="chart" width="900" height="380"></canvas>
+    <p class="note" id="graphInfo"></p>
+</section>
+
+<section class="card">
+    <h2>5. Working Principle</h2>
+    <ul class="note">
+        <li><b>RC Low-Pass:</b> The capacitor shunts high-frequency
+            signals; output is taken across the capacitor.</li>
+        <li><b>RC High-Pass:</b> The capacitor blocks DC and
+            attenuates low frequencies; output is across the resistor.</li>
+        <li><b>RL Low-Pass:</b> The inductor impedance increases
+            with frequency; output is across the resistor.</li>
+        <li><b>RL High-Pass:</b> The inductor impedance increases
+            with frequency; output is across the inductor.</li>
+    </ul>
+</section>
+
+</main>
+
+<footer>
+    <p>ECE Mini Project | RC and RL Filter Design Helper</p>
+</footer>
+
+<script>
+const typeInput = document.getElementById("type");
+const resistanceInput = document.getElementById("resistance");
+const capacitanceInput = document.getElementById("capacitance");
+const inductanceInput = document.getElementById("inductance");
+
+function getFilterData() {
+    const type = typeInput.value;
+    const R = Number(resistanceInput.value);
+    const C = Number(capacitanceInput.value) * 1e-6;
+    const L = Number(inductanceInput.value) * 1e-3;
+
+    if (!Number.isFinite(R) || R <= 0) {
+        throw new Error("Resistance must be greater than zero.");
+    }
+
+    let fc;
+    let tau;
+    let formula;
+    let outputDescription;
+    let isHighPass;
+
+    if (type.startsWith("rc")) {
+        if (!Number.isFinite(C) || C <= 0) {
+            throw new Error("Capacitance must be greater than zero.");
+        }
+
+        fc = 1 / (2 * Math.PI * R * C);
+        tau = R * C;
+        formula = "Cutoff frequency: fc = 1 / (2πRC)";
+        isHighPass = type === "rc-high";
+
+        outputDescription = isHighPass
+            ? "Output is measured across the resistor."
+            : "Output is measured across the capacitor.";
+    } else {
+        if (!Number.isFinite(L) || L <= 0) {
+            throw new Error("Inductance must be greater than zero.");
+        }
+
+        fc = R / (2 * Math.PI * L);
+        tau = L / R;
+        formula = "Cutoff frequency: fc = R / (2πL)";
+        isHighPass = type === "rl-high";
+
+        outputDescription = isHighPass
+            ? "Output is measured across the inductor."
+            : "Output is measured across the resistor.";
+    }
+
+    if (!Number.isFinite(fc) || fc <= 0) {
+        throw new Error("The calculated frequency is outside the supported range.");
+    }
+
+    return {
+        type, R, C, L, fc, tau, formula,
+        outputDescription, isHighPass
+    };
+}
+
+function formatFrequency(value) {
+    if (value >= 1e6) return (value / 1e6).toFixed(3) + " MHz";
+    if (value >= 1e3) return (value / 1e3).toFixed(3) + " kHz";
+    return value.toFixed(3) + " Hz";
+}
+
+function calculateFilter() {
+    try {
+        const d = getFilterData();
+
+        document.getElementById("fc").textContent =
+            formatFrequency(d.fc);
+
+        document.getElementById("constant").textContent =
+            d.tau >= 1
+                ? d.tau.toFixed(4) + " s"
+                : d.tau >= 0.001
+                    ? (d.tau * 1000).toFixed(4) + " ms"
+                    : (d.tau * 1e6).toFixed(4) + " µs";
+
+        document.getElementById("gain").textContent = "-3.01 dB";
+        document.getElementById("formula").textContent = d.formula;
+        document.getElementById("outputDescription").textContent =
+            d.outputDescription;
+        document.getElementById("message").textContent =
+            "Calculation completed successfully.";
+
+        drawCircuit(d);
+        drawGraph(d);
+    } catch (error) {
+        document.getElementById("message").textContent = error.message;
+    }
+}
+
+function drawCircuit(d) {
+    const isRC = d.type.startsWith("rc");
+    const isHigh = d.isHighPass;
+
+    const component = isRC
+        ? '<path d="M180 90 L200 90 L200 75 L230 75 L230 105 L260 105 L260 75 L290 75 L290 105 L320 105 L320 90 L350 90" fill="none" stroke="#1769aa" stroke-width="3"/>'
+        : '<path d="M180 90 L200 90 C205 65 215 65 220 90 C225 115 235 115 240 90 C245 65 255 65 260 90 C265 115 275 115 280 90 L350 90" fill="none" stroke="#1769aa" stroke-width="3"/>';
+
+    let branch;
+
+    if (isRC) {
+        branch = isHigh
+            ? '<path d="M260 90 L260 130 M240 130 L280 130 M240 142 L280 142 M260 142 L260 175" fill="none" stroke="#1769aa" stroke-width="3"/><text x="295" y="140" font-size="15">C</text>'
+            : '<path d="M350 90 L350 120 M330 120 L370 120 M330 132 L370 132 M350 132 L350 175" fill="none" stroke="#1769aa" stroke-width="3"/><text x="380" y="132" font-size="15">C</text>';
+    } else {
+        branch = isHigh
+            ? '<path d="M260 90 L260 175" fill="none" stroke="#1769aa" stroke-width="3"/><text x="275" y="145" font-size="15">L</text>'
+            : '<path d="M350 90 L350 175" fill="none" stroke="#1769aa" stroke-width="3"/><text x="365" y="145" font-size="15">L</text>';
+    }
+
+    const outputX = isHigh ? 260 : 350;
+    const outputBranch = isRC && isHigh
+        ? '<path d="M260 90 L260 130 M240 130 L280 130 M240 142 L280 142 M260 142 L260 175" fill="none" stroke="#1769aa" stroke-width="3"/>'
+        : isRC
+            ? '<path d="M350 90 L350 120 M330 120 L370 120 M330 132 L370 132 M350 132 L350 175" fill="none" stroke="#1769aa" stroke-width="3"/>'
+            : '<path d="M' + outputX + ' 90 L' + outputX + ' 175" fill="none" stroke="#1769aa" stroke-width="3"/>';
+
+    const svg = `
+    <svg viewBox="0 0 620 240" role="img"
+         aria-label="Simplified series filter circuit diagram">
+      <g fill="none" stroke="#1769aa" stroke-width="3">
+        <path d="M40 90 L70 90"/>
+        <path d="M70 75 L70 105 M80 75 L80 105"/>
+        ${component}
+        <path d="M350 90 L430 90 L430 175 L40 175 L40 90"/>
+        ${outputBranch}
+      </g>
+      <g fill="#123b69" font-size="15">
+        <text x="20" y="65">Vin</text>
+        <text x="120" y="65">R</text>
+        <text x="445" y="85">Vout</text>
+        <text x="40" y="205">Input</text>
+        <text x="390" y="205">Ground / return</text>
+        <text x="40" y="230">${d.type.toUpperCase().replace("-", " ")}</text>
+      </g>
+      <g fill="#1769aa">
+        <circle cx="40" cy="90" r="4"/>
+        <circle cx="430" cy="90" r="4"/>
+      </g>
+    </svg>`;
+
+    document.getElementById("diagram").innerHTML = svg;
+}
+
+function drawGraph(d) {
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const left = 80;
+    const right = 25;
+    const top = 25;
+    const bottom = 65;
+    const plotW = W - left - right;
+    const plotH = H - top - bottom;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    const minF = d.fc / 100;
+    const maxF = d.fc * 100;
+
+    function xPos(f) {
+        return left +
+            (Math.log10(f / minF) / Math.log10(maxF / minF)) * plotW;
+    }
+
+    function yPos(db) {
+        return top + ((0 - db) / 40) * plotH;
+    }
+
+    ctx.font = "14px Arial";
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.fillStyle = "#475569";
+    ctx.lineWidth = 1;
+
+    for (let db = 0; db >= -40; db -= 10) {
+        const y = yPos(db);
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(W - right, y);
+        ctx.stroke();
+        ctx.fillText(db + " dB", 20, y + 5);
+    }
+
+    for (let decade = -2; decade <= 2; decade++) {
+        const f = d.fc * Math.pow(10, decade);
+        const x = xPos(f);
+
+        ctx.beginPath();
+        ctx.moveTo(x, top);
+        ctx.lineTo(x, H - bottom);
+        ctx.stroke();
+
+        ctx.fillText(formatFrequency(f), x - 35, H - bottom + 22);
+    }
+
+    const cutoffX = xPos(d.fc);
+    ctx.save();
+    ctx.strokeStyle = "#dc2626";
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cutoffX, top);
+    ctx.lineTo(cutoffX, H - bottom);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.strokeStyle = "#1769aa";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    for (let i = 0; i <= 500; i++) {
+        const logF = Math.log10(minF) +
+            (i / 500) * Math.log10(maxF / minF);
+
+        const f = Math.pow(10, logF);
+        const ratio = f / d.fc;
+
+        // First-order ideal RC and RL filter magnitudes.
+        const gain = d.isHighPass
+            ? ratio / Math.sqrt(1 + ratio * ratio)
+            : 1 / Math.sqrt(1 + ratio * ratio);
+
+        const db = Math.max(-40, 20 * Math.log10(gain));
+        const x = xPos(f);
+        const y = yPos(db);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+
+    ctx.stroke();
+
+    ctx.fillStyle = "#123b69";
+    ctx.fillText("Gain (dB)", 20, 15);
+    ctx.fillText("Frequency (log scale)", W / 2 - 80, H - 12);
+
+    document.getElementById("graphInfo").textContent =
+        "Cutoff: " + formatFrequency(d.fc) +
+        " | At cutoff, the ideal first-order filter gain is approximately -3.01 dB.";
+}
+
+function updateInputs() {
+    const isRC = typeInput.value.startsWith("rc");
+    document.getElementById("capGroup").style.display =
+        isRC ? "block" : "none";
+    document.getElementById("indGroup").style.display =
+        isRC ? "none" : "block";
+
+    calculateFilter();
+}
+
+typeInput.addEventListener("change", updateInputs);
+resistanceInput.addEventListener("input", calculateFilter);
+capacitanceInput.addEventListener("input", () => {
+    if (typeInput.value.startsWith("rc")) calculateFilter();
+});
+inductanceInput.addEventListener("input", () => {
+    if (typeInput.value.startsWith("rl")) calculateFilter();
+});
+
+updateInputs();
+</script>
+
+</body>
+</html>
